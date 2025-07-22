@@ -8,7 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 // https://znvgxowkyhkrfxbzwedo.supabase.co/storage/v1/object/public/images/41fb287f-7bd4-4896-b4aa-db24f145e388/ffe676d5-b440-4b24-a1ca-4480839a3c80
 
-const CDNURL = "https://znvgxowkyhkrfxbzwedo.supabase.co/storage/v1/object/public/images/";
+const CDNURL = "https://kzfmunxbdfdfxumerulj.supabase.co/storage/v1/object/public/images/";
 
 // CDNURL + user.id + "/" + image.name
 
