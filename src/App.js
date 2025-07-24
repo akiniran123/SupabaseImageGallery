@@ -49,18 +49,17 @@ const [selectedFile, setSelectedFile] = useState(null); // giữ file để uplo
     }
   }, [user]);
 
-  async function magicLinkLogin() {
-    const { data, error } = await supabase.auth.signInWithOtp({
-      email: email
-    });
+async function signInWithGoogle() {
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+  });
 
-    if(error) {
-      alert("Error communicating with supabase, make sure to use a real email address!");
-      console.log(error);
-    } else {
-      alert("Check your email for a Supabase Magic Link to log in!");
-    }
+  if (error) {
+    console.log("OAuth error:", error.message);
+    alert("Đăng nhập thất bại!");
   }
+}
+
 
   async function signOut() {
     const { error } = await supabase.auth.signOut();
@@ -125,19 +124,10 @@ async function uploadImage() {
       { user === null ? 
         <>
           <h1>Welcome to ImageWall</h1>
-          <Form>
-            <Form.Group className="mb-3" style={{maxWidth: "500px"}}>
-              <Form.Label>Enter an email to sign in with a Supabase Magic Link</Form.Label>
-              <Form.Control
-                type="email"
-                placeholder="Enter email"
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </Form.Group>
-            <Button variant="primary" onClick={() => magicLinkLogin()}>
-              Get Magic Link
-            </Button>
-          </Form>
+     <Button variant="danger" onClick={signInWithGoogle}>
+  Đăng nhập bằng Google
+</Button>
+
         </>
       : 
         <>
