@@ -13,6 +13,8 @@ const CDNURL = "https://kzfmunxbdfdfxumerulj.supabase.co/storage/v1/object/publi
 // CDNURL + user.id + "/" + image.name
 
 function App() {
+  const [previewImage, setPreviewImage] = useState(null); // ảnh dạng base64 hoặc blob
+const [selectedFile, setSelectedFile] = useState(null); // giữ file để upload
   const [ email, setEmail ] = useState("");
   const [ images, setImages ] = useState([]);
   const user = useUser();
@@ -63,26 +65,42 @@ function App() {
   async function signOut() {
     const { error } = await supabase.auth.signOut();
   }
+function handleSelectFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
 
-  async function uploadImage(e) {
-    let file = e.target.files[0];
+  setSelectedFile(file); // Lưu file để upload sau
 
-    // userid: Cooper
-    // Cooper/
-    // Cooper/myNameOfImage.png
-    // Lindsay/myNameOfImage.png
-
-    const { data, error } = await supabase
-      .storage
-      .from('images')
-      .upload(user.id + "/" + uuidv4(), file)  // Cooper/ASDFASDFASDF uuid, taylorSwift.png -> taylorSwift.png
-
-    if(data) {
-      getImages();
-    } else {
-      console.log(error);
-    }
+  const reader = new FileReader();
+  reader.onloadend = () => {
+    setPreviewImage(reader.result); // base64 preview
+  };
+  reader.readAsDataURL(file);
+}
+async function uploadImage() {
+  if (!selectedFile || !user) {
+    alert("Chưa có ảnh được chọn hoặc chưa đăng nhập.");
+    return;
   }
+
+  const filePath = user.id + "/" + selectedFile.name;
+
+  const { data, error } = await supabase
+    .storage
+    .from("images")
+    .upload(filePath, selectedFile);
+
+  if (error) {
+    console.error("Lỗi upload:", error.message);
+    alert("Upload thất bại.");
+  } else {
+    getImages();
+    setSelectedFile(null);
+    setPreviewImage(null);
+  }
+}
+
+
 
   async function deleteImage(imageName) {
     const { error } = await supabase
@@ -127,9 +145,37 @@ function App() {
           <Button onClick={() => signOut()}>Sign Out</Button>
           <p>Current user: {user.email}</p>
           <p>Use the Choose File button below to upload an image to your gallery</p>
-          <Form.Group className="mb-3" style={{maxWidth: "500px"}}>
-            <Form.Control type="file" accept="image/png, image/jpeg" onChange={(e) => uploadImage(e)}/>
-          </Form.Group>
+          <Form.Group className="mb-3" style={{ maxWidth: "500px" }}>
+  <Form.Label>Chọn ảnh để upload:</Form.Label>
+  <Form.Control
+    type="file"
+    accept="image/png, image/jpeg"
+    onChange={handleSelectFile}
+  />
+</Form.Group>
+
+{previewImage && (
+  <div style={{ maxWidth: "400px", margin: "20px auto" }}>
+    <h5>Preview:</h5>
+    <img
+      src={previewImage}
+      alt="Preview"
+      style={{
+        width: "100%",
+        objectFit: "cover",
+        borderRadius: "8px",
+        boxShadow: "0 0 10px rgba(0,0,0,0.1)",
+        marginBottom: "10px"
+      }}
+    />
+    <Button variant="success" onClick={uploadImage}>
+      Upload ảnh
+    </Button>
+  </div>
+)}
+
+         
+
           <hr />
           <h3>Your Images</h3>
           {/* 
