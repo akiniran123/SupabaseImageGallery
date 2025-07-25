@@ -1,193 +1,252 @@
-import logo from './logo.svg';
 import { useState, useEffect } from 'react';
 import './App.css';
-import { Container, Form, Button, Row, Col, Card } from 'react-bootstrap';
+import { Container, Form, Button, Row, Col, Card, InputGroup } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { useUser, useSupabaseClient } from "@supabase/auth-helpers-react";
 import { v4 as uuidv4 } from 'uuid';
 
-// https://znvgxowkyhkrfxbzwedo.supabase.co/storage/v1/object/public/images/41fb287f-7bd4-4896-b4aa-db24f145e388/ffe676d5-b440-4b24-a1ca-4480839a3c80
-
 const CDNURL = "https://kzfmunxbdfdfxumerulj.supabase.co/storage/v1/object/public/images/";
 
-// CDNURL + user.id + "/" + image.name
-
 function App() {
-  const [previewImage, setPreviewImage] = useState(null); // ảnh dạng base64 hoặc blob
-const [selectedFile, setSelectedFile] = useState(null); // giữ file để upload
-  const [ email, setEmail ] = useState("");
-  const [ images, setImages ] = useState([]);
+  const [previewImage, setPreviewImage] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [title, setTitle] = useState("");
+  const [images, setImages] = useState([]);
+  const [editingTitles, setEditingTitles] = useState({});
   const user = useUser();
   const supabase = useSupabaseClient();
-  console.log(email);
 
   async function getImages() {
     const { data, error } = await supabase
-      .storage
-      .from('images')
-      .list(user?.id + "/", {
-        limit: 100,
-        offset: 0,
-        sortBy: { column: "name", order: "asc"}
-      });   // Cooper/
-      // data: [ image1, image2, image3 ]
-      // image1: { name: "subscribeToCooperCodes.png" }
+      .from("image_metadata")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("inserted_at", { ascending: false });
 
-      // to load image1: CDNURL.com/subscribeToCooperCodes.png -> hosted image
-
-      if(data !== null) {
-        setImages(data);
-      } else {
-        alert("Error loading images");
-        console.log(error);
-      }
+    if (error) {
+      console.error("Lỗi tải ảnh:", error.message);
+      alert("Không thể tải danh sách ảnh.");
+    } else {
+      setImages(data);
+      const editTitles = {};
+      data.forEach(img => editTitles[img.file_name] = img.title);
+      setEditingTitles(editTitles);
+    }
   }
-  
+
   useEffect(() => {
-    if(user) {
+    if (user) {
       getImages();
     }
   }, [user]);
 
-async function signInWithGoogle() {
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-  });
-
-  if (error) {
-    console.log("OAuth error:", error.message);
-    alert("Đăng nhập thất bại!");
+  async function signInWithGoogle() {
+    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
+    if (error) {
+      console.error("OAuth error:", error.message);
+      alert("Đăng nhập thất bại!");
+    }
   }
-}
-
 
   async function signOut() {
     const { error } = await supabase.auth.signOut();
-  }
-function handleSelectFile(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  setSelectedFile(file); // Lưu file để upload sau
-
-  const reader = new FileReader();
-  reader.onloadend = () => {
-    setPreviewImage(reader.result); // base64 preview
-  };
-  reader.readAsDataURL(file);
-}
-async function uploadImage() {
-  if (!selectedFile || !user) {
-    alert("Chưa có ảnh được chọn hoặc chưa đăng nhập.");
-    return;
+    if (error) {
+      console.error("Sign out error:", error.message);
+    }
   }
 
-  const filePath = user.id + "/" + selectedFile.name;
+  function handleSelectFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
 
-  const { data, error } = await supabase
-    .storage
-    .from("images")
-    .upload(filePath, selectedFile);
+    setSelectedFile(file);
 
-  if (error) {
-    console.error("Lỗi upload:", error.message);
-    alert("Upload thất bại.");
-  } else {
-    getImages();
-    setSelectedFile(null);
-    setPreviewImage(null);
+    const reader = new FileReader();
+    reader.onloadend = () => setPreviewImage(reader.result);
+    reader.readAsDataURL(file);
   }
-}
 
+  async function uploadImage() {
+    if (!selectedFile || !user || title.trim() === "") {
+      alert("Cần chọn ảnh và nhập tiêu đề.");
+      return;
+    }
 
+    const fileName = uuidv4() + "-" + selectedFile.name;
+    const filePath = user.id + "/" + fileName;
 
-  async function deleteImage(imageName) {
-    const { error } = await supabase
+    const { error: uploadError } = await supabase
       .storage
-      .from('images')
-      .remove([ user.id + "/" + imageName])
-    
-    if(error) {
-      alert(error);
+      .from("images")
+      .upload(filePath, selectedFile);
+
+    if (uploadError) {
+      console.error("Lỗi upload ảnh:", uploadError.message);
+      alert("Upload ảnh thất bại.");
+      return;
+    }
+
+    const { error: insertError } = await supabase
+      .from("image_metadata")
+      .insert({
+        user_id: user.id,
+        file_name: fileName,
+        title: title.trim(),
+      });
+
+    if (insertError) {
+      console.error("Lỗi lưu tiêu đề:", insertError.message);
+      alert("Không thể lưu tiêu đề ảnh.");
+    } else {
+      getImages();
+      setSelectedFile(null);
+      setPreviewImage(null);
+      setTitle("");
+    }
+  }
+
+  async function deleteImage(fileName) {
+    const { error: deleteError } = await supabase
+      .storage
+      .from("images")
+      .remove([user.id + "/" + fileName]);
+
+    const { error: metaError } = await supabase
+      .from("image_metadata")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("file_name", fileName);
+
+    if (deleteError || metaError) {
+      alert("Không thể xoá ảnh.");
     } else {
       getImages();
     }
   }
 
+  async function updateTitle(fileName) {
+    const newTitle = editingTitles[fileName].trim();
+    if (!newTitle) {
+      alert("Tiêu đề không được để trống.");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("image_metadata")
+      .update({ title: newTitle })
+      .eq("user_id", user.id)
+      .eq("file_name", fileName);
+
+    if (error) {
+      console.error("Lỗi cập nhật tiêu đề:", error.message);
+      alert("Không thể cập nhật tiêu đề.");
+    } else {
+      getImages();
+    }
+  }
 
   return (
     <Container align="center" className="container-sm mt-4">
-      {/* 
-        if they dont exist: show them the login page
-        if the user exists: show them the images / upload images page
-      */}
-      { user === null ? 
+      {user === null ? (
         <>
           <h1>Welcome to ImageWall</h1>
-     <Button variant="danger" onClick={signInWithGoogle}>
-  Đăng nhập bằng Google
-</Button>
-
+          <Button variant="danger" onClick={signInWithGoogle}>
+            Đăng nhập bằng Google
+          </Button>
         </>
-      : 
+      ) : (
         <>
           <h1>Your ImageWall</h1>
-          <Button onClick={() => signOut()}>Sign Out</Button>
+          <Button onClick={signOut}>Sign Out</Button>
           <p>Current user: {user.email}</p>
-          <p>Use the Choose File button below to upload an image to your gallery</p>
+
           <Form.Group className="mb-3" style={{ maxWidth: "500px" }}>
-  <Form.Label>Chọn ảnh để upload:</Form.Label>
-  <Form.Control
-    type="file"
-    accept="image/png, image/jpeg"
-    onChange={handleSelectFile}
-  />
-</Form.Group>
+            <Form.Label>Tiêu đề ảnh:</Form.Label>
+            <Form.Control
+              type="text"
+              placeholder="Nhập tiêu đề"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </Form.Group>
 
-{previewImage && (
-  <div style={{ maxWidth: "400px", margin: "20px auto" }}>
-    <h5>Preview:</h5>
-    <img
-      src={previewImage}
-      alt="Preview"
-      style={{
-        width: "100%",
-        objectFit: "cover",
-        borderRadius: "8px",
-        boxShadow: "0 0 10px rgba(0,0,0,0.1)",
-        marginBottom: "10px"
-      }}
-    />
-    <Button variant="success" onClick={uploadImage}>
-      Upload ảnh
-    </Button>
-  </div>
-)}
+          <Form.Group className="mb-3" style={{ maxWidth: "500px" }}>
+            <Form.Label>Chọn ảnh để upload:</Form.Label>
+            <Form.Control
+              type="file"
+              accept="image/png, image/jpeg"
+              onChange={handleSelectFile}
+            />
+          </Form.Group>
 
-         
+          {previewImage && (
+            <div style={{ maxWidth: "400px", margin: "20px auto" }}>
+              <h5>Preview:</h5>
+              <img
+                src={previewImage}
+                alt="Preview"
+                style={{
+                  width: "100%",
+                  objectFit: "cover",
+                  borderRadius: "8px",
+                  boxShadow: "0 0 10px rgba(0,0,0,0.1)",
+                  marginBottom: "10px"
+                }}
+              />
+              <Button variant="success" onClick={uploadImage}>
+                Upload ảnh
+              </Button>
+            </div>
+          )}
 
           <hr />
           <h3>Your Images</h3>
-          {/* 
-            to get an image: CDNURL + user.id + "/" + image.name 
-            images: [image1, image2, image3]  
-          */ }
           <Row xs={1} md={3} className="g-4">
-            {images.map((image) => {
-              return (
-                <Col key={CDNURL + user.id + "/" + image.name}>
-                  <Card>
-                    <Card.Img variant="top" src={CDNURL + user.id + "/" + image.name} />
-                    <Card.Body>
-                      <Button variant="danger" onClick={() => deleteImage(image.name)}>Delete Image</Button>
-                    </Card.Body>
-                  </Card>
-                </Col>
-              )
-            })}
+            {images.map((image) => (
+              <Col key={image.file_name}>
+                <Card>
+                  <Card.Img
+                    variant="top"
+                    src={CDNURL + user.id + "/" + image.file_name}
+                  />
+                  <Card.Body>
+                    <Form.Group>
+                      <Form.Label>Tiêu đề:</Form.Label>
+                      <InputGroup>
+                        <Form.Control
+                          type="text"
+                          value={editingTitles[image.file_name] || ""}
+                          onChange={(e) =>
+                            setEditingTitles((prev) => ({
+                              ...prev,
+                              [image.file_name]: e.target.value,
+                            }))
+                          }
+                        />
+                        <Button
+                          variant="outline-primary"
+                          onClick={() => updateTitle(image.file_name)}
+                        >
+                          Lưu
+                        </Button>
+                      </InputGroup>
+                    </Form.Group>
+                    <p className="text-muted mt-2" style={{ fontSize: "0.9rem" }}>
+                      Đăng lúc: {new Date(image.inserted_at).toLocaleString()}
+                    </p>
+                    <Button
+                      variant="danger"
+                      onClick={() => deleteImage(image.file_name)}
+                    >
+                      Xoá ảnh
+                    </Button>
+                  </Card.Body>
+                </Card>
+              </Col>
+            ))}
           </Row>
         </>
-      }
+      )}
     </Container>
   );
 }
