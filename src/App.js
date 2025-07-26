@@ -1,12 +1,12 @@
 import './styles/App.css';
-import { Container, Button, Row, Col } from 'react-bootstrap';
+import { Container, Row, Col } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 import useImageManager from './hooks/useImageManager';
 import ImageCard from './components/ImageCard';
 import ImageUploadForm from './components/ImageUploadForm';
 import SearchAndSort from './components/SearchAndSort';
-import { useSupabaseClient } from "@supabase/auth-helpers-react";
+import AuthButton from './components/AuthButton';
 
 function App() {
   const {
@@ -29,42 +29,16 @@ function App() {
     setSortOrder,
   } = useImageManager();
 
-  const supabase = useSupabaseClient();
-
-  async function signInWithGoogle() {
-    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
-    if (error) {
-      console.error("OAuth error:", error.message);
-      alert("Đăng nhập thất bại!");
-    }
-  }
-
-  async function signOut() {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error("Sign out error:", error.message);
-    }
-  }
-
   const filteredImages = images.filter((img) =>
     img.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <Container align="center" className="container-sm mt-4">
-      {user === null ? (
-        <>
-          <h1>Welcome to ImageWall</h1>
-          <Button variant="danger" onClick={signInWithGoogle}>
-            Đăng nhập bằng Google
-          </Button>
-        </>
-      ) : (
-        <>
-          <h1>Your ImageWall</h1>
-          <Button onClick={signOut}>Sign Out</Button>
-          <p>Current user: {user.email}</p>
+      <AuthButton />
 
+      {user && (
+        <>
           <ImageUploadForm
             title={title}
             setTitle={setTitle}
