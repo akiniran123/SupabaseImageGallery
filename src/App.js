@@ -15,6 +15,8 @@ function App() {
   const [editingTitles, setEditingTitles] = useState({});
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortOrder, setSortOrder] = useState("desc");
   const fileInputRef = useRef(null);
 
   const user = useUser();
@@ -26,7 +28,7 @@ function App() {
       .from("image_metadata")
       .select("*")
       .eq("user_id", user.id)
-      .order("inserted_at", { ascending: false });
+      .order("inserted_at", { ascending: sortOrder === "asc" });
 
     if (error) {
       console.error("Lỗi tải ảnh:", error.message);
@@ -44,7 +46,7 @@ function App() {
     if (user) {
       getImages();
     }
-  }, [user]);
+  }, [user, sortOrder]);
 
   async function signInWithGoogle() {
     const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
@@ -158,6 +160,10 @@ function App() {
     }
   }
 
+  const filteredImages = images.filter((img) =>
+    img.title.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <Container align="center" className="container-sm mt-4">
       {user === null ? (
@@ -215,11 +221,34 @@ function App() {
 
           <hr />
           <h3>Your Images</h3>
+
+          <Form className="mb-3" style={{ maxWidth: 500 }}>
+            <Form.Control
+              type="text"
+              placeholder="Tìm theo tiêu đề ảnh..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </Form>
+
+          <Form.Group className="mb-4" style={{ maxWidth: 300 }}>
+            <Form.Label>Sắp xếp theo ngày:</Form.Label>
+            <Form.Select
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value)}
+            >
+              <option value="desc">Mới nhất trước</option>
+              <option value="asc">Cũ nhất trước</option>
+            </Form.Select>
+          </Form.Group>
+
           {loading ? (
             <p>Đang tải ảnh...</p>
+          ) : filteredImages.length === 0 ? (
+            <p>Không tìm thấy ảnh nào.</p>
           ) : (
             <Row xs={1} md={3} className="g-4">
-              {images.map((image) => (
+              {filteredImages.map((image) => (
                 <Col key={image.file_name}>
                   <Card>
                     <Card.Img
