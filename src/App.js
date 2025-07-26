@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './App.css';
 import { Container, Form, Button, Row, Col, Card, InputGroup } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -13,10 +13,15 @@ function App() {
   const [title, setTitle] = useState("");
   const [images, setImages] = useState([]);
   const [editingTitles, setEditingTitles] = useState({});
+  const [uploading, setUploading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef(null);
+
   const user = useUser();
   const supabase = useSupabaseClient();
 
   async function getImages() {
+    setLoading(true);
     const { data, error } = await supabase
       .from("image_metadata")
       .select("*")
@@ -32,6 +37,7 @@ function App() {
       data.forEach(img => editTitles[img.file_name] = img.title);
       setEditingTitles(editTitles);
     }
+    setLoading(false);
   }
 
   useEffect(() => {
@@ -72,6 +78,7 @@ function App() {
       return;
     }
 
+    setUploading(true);
     const fileName = uuidv4() + "-" + selectedFile.name;
     const filePath = user.id + "/" + fileName;
 
@@ -83,6 +90,7 @@ function App() {
     if (uploadError) {
       console.error("Lỗi upload ảnh:", uploadError.message);
       alert("Upload ảnh thất bại.");
+      setUploading(false);
       return;
     }
 
@@ -94,6 +102,8 @@ function App() {
         title: title.trim(),
       });
 
+    setUploading(false);
+
     if (insertError) {
       console.error("Lỗi lưu tiêu đề:", insertError.message);
       alert("Không thể lưu tiêu đề ảnh.");
@@ -102,6 +112,9 @@ function App() {
       setSelectedFile(null);
       setPreviewImage(null);
       setTitle("");
+      if (fileInputRef.current) {
+        fileInputRef.current.value = null;
+      }
     }
   }
 
@@ -125,7 +138,7 @@ function App() {
   }
 
   async function updateTitle(fileName) {
-    const newTitle = editingTitles[fileName].trim();
+    const newTitle = editingTitles[fileName]?.trim();
     if (!newTitle) {
       alert("Tiêu đề không được để trống.");
       return;
@@ -176,6 +189,7 @@ function App() {
               type="file"
               accept="image/png, image/jpeg"
               onChange={handleSelectFile}
+              ref={fileInputRef}
             />
           </Form.Group>
 
@@ -193,58 +207,64 @@ function App() {
                   marginBottom: "10px"
                 }}
               />
-              <Button variant="success" onClick={uploadImage}>
-                Upload ảnh
+              <Button variant="success" onClick={uploadImage} disabled={uploading}>
+                {uploading ? "Đang tải lên..." : "Upload ảnh"}
               </Button>
             </div>
           )}
 
           <hr />
           <h3>Your Images</h3>
-          <Row xs={1} md={3} className="g-4">
-            {images.map((image) => (
-              <Col key={image.file_name}>
-                <Card>
-                  <Card.Img
-                    variant="top"
-                    src={CDNURL + user.id + "/" + image.file_name}
-                  />
-                  <Card.Body>
-                    <Form.Group>
-                      <Form.Label>Tiêu đề:</Form.Label>
-                      <InputGroup>
-                        <Form.Control
-                          type="text"
-                          value={editingTitles[image.file_name] || ""}
-                          onChange={(e) =>
-                            setEditingTitles((prev) => ({
-                              ...prev,
-                              [image.file_name]: e.target.value,
-                            }))
-                          }
-                        />
-                        <Button
-                          variant="outline-primary"
-                          onClick={() => updateTitle(image.file_name)}
-                        >
-                          Lưu
-                        </Button>
-                      </InputGroup>
-                    </Form.Group>
-                    <p className="text-muted mt-2" style={{ fontSize: "0.9rem" }}>
-                      Đăng lúc: {new Date(image.inserted_at).toLocaleString()}
-                    </p>
-                    <Button
-                      variant="danger"
-                      onClick={() => deleteImage(image.file_name)}
-                    >
-                      Xoá ảnh
-                    </Button>
-                  </Card.Body>
-                </Card>
-              </Col>
-            ))}
-          </Row>
+          {loading ? (
+            <p>Đang tải ảnh...</p>
+          ) : (
+            <Row xs={1} md={3} className="g-4">
+              {images.map((image) => (
+                <Col key={image.file_name}>
+                  <Card>
+                    <Card.Img
+                      variant="top"
+                      src={CDNURL + user.id + "/" + image.file_name}
+                      alt={image.title || "Uploaded image"}
+                    />
+                    <Card.Body>
+                      <Form.Group>
+                        <Form.Label>Tiêu đề:</Form.Label>
+                        <InputGroup>
+                          <Form.Control
+                            type="text"
+                            value={editingTitles[image.file_name] || ""}
+                            onChange={(e) =>
+                              setEditingTitles((prev) => ({
+                                ...prev,
+                                [image.file_name]: e.target.value,
+                              }))
+                            }
+                          />
+                          <Button
+                            variant="outline-primary"
+                            onClick={() => updateTitle(image.file_name)}
+                            disabled={!editingTitles[image.file_name]?.trim()}
+                          >
+                            Lưu
+                          </Button>
+                        </InputGroup>
+                      </Form.Group>
+                      <p className="text-muted mt-2" style={{ fontSize: "0.9rem" }}>
+                        Đăng lúc: {new Date(image.inserted_at).toLocaleString()}
+                      </p>
+                      <Button
+                        variant="danger"
+                        onClick={() => deleteImage(image.file_name)}
+                      >
+                        Xoá ảnh
+                      </Button>
+                    </Card.Body>
+                  </Card>
+                </Col>
+              ))}
+            </Row>
+          )}
         </>
       )}
     </Container>
