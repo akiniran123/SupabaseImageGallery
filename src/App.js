@@ -13,14 +13,29 @@ const CDNURL = "https://znvgxowkyhkrfxbzwedo.supabase.co/storage/v1/object/publi
 // CDNURL + user.id + "/" + image.name
 
 function App() {
+<<<<<<< Updated upstream
   const [ email, setEmail ] = useState("");
   const [ images, setImages ] = useState([]);
+=======
+  const [previewImage, setPreviewImage] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [title, setTitle] = useState("");
+  const [images, setImages] = useState([]);
+  const [editingTitles, setEditingTitles] = useState({});
+  const [uploading, setUploading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortOrder, setSortOrder] = useState("desc");
+  const fileInputRef = useRef(null);
+
+>>>>>>> Stashed changes
   const user = useUser();
   const supabase = useSupabaseClient();
   console.log(email);
 
   async function getImages() {
     const { data, error } = await supabase
+<<<<<<< Updated upstream
       .storage
       .from('images')
       .list(user?.id + "/", {
@@ -30,6 +45,12 @@ function App() {
       });   // Cooper/
       // data: [ image1, image2, image3 ]
       // image1: { name: "subscribeToCooperCodes.png" }
+=======
+      .from("image_metadata")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("inserted_at", { ascending: sortOrder === "asc" });
+>>>>>>> Stashed changes
 
       // to load image1: CDNURL.com/subscribeToCooperCodes.png -> hosted image
 
@@ -45,7 +66,7 @@ function App() {
     if(user) {
       getImages();
     }
-  }, [user]);
+  }, [user, sortOrder]);
 
   async function magicLinkLogin() {
     const { data, error } = await supabase.auth.signInWithOtp({
@@ -97,6 +118,12 @@ function App() {
     }
   }
 
+<<<<<<< Updated upstream
+=======
+  const filteredImages = images.filter((img) =>
+    img.title.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+>>>>>>> Stashed changes
 
   return (
     <Container align="center" className="container-sm mt-4">
@@ -132,6 +159,7 @@ function App() {
           </Form.Group>
           <hr />
           <h3>Your Images</h3>
+<<<<<<< Updated upstream
           {/* 
             to get an image: CDNURL + user.id + "/" + image.name 
             images: [image1, image2, image3]  
@@ -140,6 +168,37 @@ function App() {
             {images.map((image) => {
               return (
                 <Col key={CDNURL + user.id + "/" + image.name}>
+=======
+
+          <Form className="mb-3" style={{ maxWidth: 500 }}>
+            <Form.Control
+              type="text"
+              placeholder="Tìm theo tiêu đề ảnh..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </Form>
+
+          <Form.Group className="mb-4" style={{ maxWidth: 300 }}>
+            <Form.Label>Sắp xếp theo ngày:</Form.Label>
+            <Form.Select
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value)}
+            >
+              <option value="desc">Mới nhất trước</option>
+              <option value="asc">Cũ nhất trước</option>
+            </Form.Select>
+          </Form.Group>
+
+          {loading ? (
+            <p>Đang tải ảnh...</p>
+          ) : filteredImages.length === 0 ? (
+            <p>Không tìm thấy ảnh nào.</p>
+          ) : (
+            <Row xs={1} md={3} className="g-4">
+              {filteredImages.map((image) => (
+                <Col key={image.file_name}>
+>>>>>>> Stashed changes
                   <Card>
                     <Card.Img variant="top" src={CDNURL + user.id + "/" + image.name} />
                     <Card.Body>
